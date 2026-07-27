@@ -51,5 +51,9 @@ for index, item in enumerate(items):
 delete_item_index = randint(0, items_count - 1)
 delete_item = database.pop(delete_item_index)
 
+#!--------task5--------!
+driver.find_element(By.CLASS_NAME, 'shopping_cart_link').click()
+
+
 sleep(30)
 
