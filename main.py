@@ -63,6 +63,8 @@ for item in cart_items:
         item.find_element(By.CLASS_NAME, 'btn').click()
         break
 
+#!--------task7--------!
+driver.find_element(By.ID, 'checkout').click()
 
 sleep(30)
 
