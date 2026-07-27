@@ -50,9 +50,18 @@ for index, item in enumerate(items):
 #!--------task4--------!
 delete_item_index = randint(0, items_count - 1)
 delete_item = database.pop(delete_item_index)
+print(delete_item[0])
 
 #!--------task5--------!
 driver.find_element(By.CLASS_NAME, 'shopping_cart_link').click()
+
+#!--------task6--------!
+WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
+cart_items = driver.find_element(By.CLASS_NAME, 'cart_list').find_elements(By.CLASS_NAME, 'cart_item')
+for item in cart_items:
+    if item.find_element(By.CLASS_NAME, 'inventory_item_name').text == delete_item[0]:
+        item.find_element(By.CLASS_NAME, 'btn').click()
+        break
 
 
 sleep(30)
