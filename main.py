@@ -76,6 +76,15 @@ driver.find_element(By.ID, 'last-name').send_keys(last_name)
 driver.find_element(By.ID, 'postal-code').send_keys(postal_code)
 driver.find_element(By.ID, 'continue').click()
 
+#!--------task9--------!
+WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
+info_item_block = driver.find_element(By.CLASS_NAME, 'summary_info')
+info_items = info_item_block.find_elements(By.CLASS_NAME, 'summary_value_label')
+payment_information = info_items[0].text
+shipping_information = info_items[1].text
+tax = float(driver.find_element(By.CLASS_NAME, 'summary_tax_label').text.split()[1][1:])
+total = float(driver.find_element(By.CLASS_NAME, 'summary_total_label').text.split()[1][1:])
+info_item_block.find_element(By.ID, 'finish').click()
 
 sleep(30)
 
