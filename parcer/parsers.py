@@ -8,6 +8,9 @@ import os
 from openpyxl import Workbook
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import PatternFill, Alignment, Border, Side
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, select, insert
+from .database import ProductOrder, Product, Order, Base
 
 
 class Parser:
@@ -23,6 +26,7 @@ class Parser:
         self.last_name = last_name
         self.postal_code = postal_code
         self.driver = self.create_driver()
+        self.engine = self.create_database()
         
 
     def create_driver(self):
@@ -38,6 +42,12 @@ class Parser:
         driver = webdriver.Chrome(options=options)
         return driver
 
+    def create_database(self):
+        engine = create_engine('sqlite:///orders.db')
+        Base.metadata.create_all(engine)
+        return engine
+
+
     def authorization(self, ):
         self.driver.find_element(By.ID, 'user-name').send_keys(self.login)
         self.driver.find_element(By.ID, 'password').send_keys(self.password)
@@ -50,33 +60,83 @@ class Parser:
         buy_items_indecies = sorted(sample(range(len(items)), self.items_count))
         k = 0
 
-        database = []
-        for index, item in enumerate(items):
-            if index == buy_items_indecies[k]:
-                title = item.find_element(By.CLASS_NAME, 'inventory_item_name').text 
-                description = item.find_element(By.CLASS_NAME, 'inventory_item_desc').text 
-                price = float(item.find_element(By.CLASS_NAME, 'inventory_item_price').text[1:])
-                item.find_element(By.CLASS_NAME, 'btn').click()
-                database.append((title, description, price))
-                k += 1
-                if k == self.items_count:
-                    break
+        '''
 
-        return database
+        with Session(bind=engine) as session:
+
+            # add users
+            usr1 = User(name="bob")
+            session.add(usr1)
+
+            usr2 = User(name="alice")
+            session.add(usr2)
+
+            session.commit()
+
+            # add projects
+            prj1 = Project(name="Project 1")
+            session.add(prj1)
+
+            prj2 = Project(name="Project 2")
+            session.add(prj2)
+
+            session.commit()
+
+            # map users to projects
+            prj1.users = [usr1, usr2]
+            prj2.users = [usr2]
+
+            session.commit()
+
+        Session = sessionmaker(bind=engine)
+                session = Session()
+                try:
+                    # Подтверждаем транзакцию
+                    session.commit()
+                    print("Пользователь успешно добавлен!")
+                except:
+                    # В случае ошибки откатываем транзакцию
+                    session.rollback()
+                    print("Произошла ошибка, откатываем транзакцию.")
+                finally:
+                    # Закрываем сессию
+                    session.close()
+        '''
+        self.current_items = []
+        with Session(bind=self.engine) as session:
+            for index, item in enumerate(items):
+                if index == buy_items_indecies[k]:
+                    title = item.find_element(By.CLASS_NAME, 'inventory_item_name').text 
+                    description = item.find_element(By.CLASS_NAME, 'inventory_item_desc').text 
+                    price = float(item.find_element(By.CLASS_NAME, 'inventory_item_price').text[1:])
+                    item.find_element(By.CLASS_NAME, 'btn').click()
+                    res = session.query(Product).filter_by(title=title, description=description, price=price)
+                    if res.count() == 0:
+                        product = Product(title=title, description=description, price=price)
+                        session.add(product)
+                        session.commit()
+                        self.current_items.append(product.id)
+                    else:
+                        self.current_items.append(res.first().id)
+                    k += 1
+                    if k == self.items_count:
+                        break
 
     def delete_item_from_database(self):
         delete_item_index = randint(0, self.items_count - 1)
-        delete_item = self.database.pop(delete_item_index)
-        return delete_item
+        delete_item_id_on_database = self.current_items.pop(delete_item_index)
+        with Session(bind=self.engine) as session:
+            delete_item_title = session.query(Product).filter_by(id=delete_item_id_on_database).first().title
+        return delete_item_title
 
     def go_to_cart(self):
         self.driver.find_element(By.CLASS_NAME, 'shopping_cart_link').click()
 
-    def delete_item_from_cart(self, delete_item):
+    def delete_item_from_cart(self, delete_item_title):
         WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
         cart_items = self.driver.find_element(By.CLASS_NAME, 'cart_list').find_elements(By.CLASS_NAME, 'cart_item')
         for item in cart_items:
-            if item.find_element(By.CLASS_NAME, 'inventory_item_name').text == delete_item[0]:
+            if item.find_element(By.CLASS_NAME, 'inventory_item_name').text == delete_item_title:
                 item.find_element(By.CLASS_NAME, 'btn').click()
                 break
 
@@ -94,12 +154,24 @@ class Parser:
         WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
         info_item_block = self.driver.find_element(By.CLASS_NAME, 'summary_info')
         info_items = info_item_block.find_elements(By.CLASS_NAME, 'summary_value_label')
-        payment_information = info_items[0].text
-        shipping_information = info_items[1].text
-        tax = float(self.driver.find_element(By.CLASS_NAME, 'summary_tax_label').text.split()[1][1:])
-        total = float(self.driver.find_element(By.CLASS_NAME, 'summary_total_label').text.split()[1][1:])
+        self.payment_information = info_items[0].text
+        self.shipping_information = info_items[1].text
+        self.tax = float(self.driver.find_element(By.CLASS_NAME, 'summary_tax_label').text.split()[1][1:])
+        self.total = float(self.driver.find_element(By.CLASS_NAME, 'summary_total_label').text.split()[1][1:])
         info_item_block.find_element(By.ID, 'finish').click()
-        return payment_information, shipping_information, tax, total
+        with Session(bind=self.engine) as session:
+            order = Order(first_name=self.first_name, last_name=self.last_name,
+                          postal_code=self.postal_code, payment_information=self.payment_information,
+                          shipping_information=self.shipping_information, tax=self.tax, price_on_cite=self.total)
+            session.add(order)
+            session.commit()
+            insert_data = [
+                {"orderId": order.id, "productId": product_id} 
+                for product_id in self.current_items
+            ]
+            self.current_order_id = order.id
+            session.execute(insert(ProductOrder), insert_data)
+            session.commit()
 
     def create_pdf(self):
         WebDriverWait(self.driver, 30).until(EC.element_to_be_clickable((By.ID, 'generate-pdf-order')))
@@ -153,7 +225,7 @@ class Parser:
                 cell.alignment = Alignment(wrap_text=True, horizontal='justify')
 
     def set_main_data(self, header, data, range):
-        data = [header] + [(index + 1, *item) for index, item in enumerate(data)]
+        data = [header] + data
         data = [item for sublist in data for item in sublist]
         k = 0
         for row in self.work_sheet[range]:
@@ -186,27 +258,36 @@ class Parser:
             left=head_side, right=head_side, top=head_side, bottom=head_side
         )
 
-        self.set_header(['B1', 'B2'], 'Customer', f'{self.first_name} {self.last_name}', table_border)
-        self.set_header(['C1', 'C2'], 'ZIP/Post code', self.postal_code, table_border)
-        self.set_header(['D1', 'D2'], 'Payment Information', self.payment_information, table_border)
-        self.set_header(['E1', 'E2'], 'Shipping Information', self.shipping_information, table_border)
+        with Session(bind=self.engine) as session:
+            order_info = session.query(Order).filter_by(id=self.current_order_id).first()
+            product_count_in_order = session.query(ProductOrder).filter_by(orderId=order_info.id).count()
+            products_in_order = order_info.products
+            products_data = [(index + 1, item.title, item.description, item.price) 
+                             for index, item in enumerate(products_in_order)]
+            session.close()
+
+
+        self.set_header(['B1', 'B2'], 'Customer', f'{order_info.first_name} {order_info.last_name}', table_border)
+        self.set_header(['C1', 'C2'], 'ZIP/Post code', order_info.postal_code, table_border)
+        self.set_header(['D1', 'D2'], 'Payment Information', order_info.payment_information, table_border)
+        self.set_header(['E1', 'E2'], 'Shipping Information', order_info.shipping_information, table_border)
 
         self.set_column_width(width_values)
 
-        self.set_main_data(('№', 'Product', 'Description', 'Price'), self.database, f'A4:D{3 + self.items_count}')
+        self.set_main_data(('№', 'Product', 'Description', 'Price'), products_data, f'A4:D{4 + product_count_in_order}')
 
-        self.set_merge_rows_value(['E4', 'E5'], 'Item total', f'=SUM(D5:D{3 + self.items_count})', 5, 5, 3 + self.items_count)
-        self.set_merge_rows_value(['F4', 'F5'], 'Tax', self.tax, 6, 5, 3 + self.items_count)
-        self.set_merge_rows_value(['G4', 'G5'], 'Total', '=E5 + F5', 7, 5, 3 + self.items_count)
-        self.set_merge_rows_value(['H4', 'H5'], 'Total on cite', self.total, 8, 5, 3 + self.items_count)
+        self.set_merge_rows_value(['E4', 'E5'], 'Item total', f'=SUM(D5:D{4 + product_count_in_order})', 5, 5, 4 + product_count_in_order)
+        self.set_merge_rows_value(['F4', 'F5'], 'Tax', order_info.tax, 6, 5, 4 + product_count_in_order)
+        self.set_merge_rows_value(['G4', 'G5'], 'Total', '=E5 + F5', 7, 5, 4 + product_count_in_order)
+        self.set_merge_rows_value(['H4', 'H5'], 'Total on cite', order_info.price_on_cite, 8, 5, 4 + product_count_in_order)
 
-        self.set_merge_rows_value(['I4', 'I5'], 'Equal totals', '', 9, 5, 3 + self.items_count)
+        self.set_merge_rows_value(['I4', 'I5'], 'Equal totals', '', 9, 5, 4 + product_count_in_order)
         self.create_equal_not_equal_color_rule('I5', ['$H$5', '$G$5'])
 
-        self.create_table_borders('A4:I4', head_border, f'A5:I{3 + self.items_count}', table_border)
+        self.create_table_borders('A4:I4', head_border, f'A5:I{4 + product_count_in_order}', table_border)
 
-        self.set_small_text_alignment(f'A4:I{3 + self.items_count}')
-        self.set_large_text_alignment(f'C5:C{3 + self.items_count}')
+        self.set_small_text_alignment(f'A4:I{4 + product_count_in_order}')
+        self.set_large_text_alignment(f'C5:C{4 + product_count_in_order}')
 
         self.work_book.save('Report.xlsx')
 
@@ -217,16 +298,16 @@ class Parser:
         self.authorization()
 
         #!--------task2-3--------!
-        self.database = self.create_cart()
+        self.create_cart()
 
         #!--------task4--------!
-        self.delete_item = self.delete_item_from_database()
+        self.delete_item_title = self.delete_item_from_database()
 
         #!--------task5--------!
         self.go_to_cart()
 
         #!--------task6--------!
-        self.delete_item_from_cart(self.delete_item)
+        self.delete_item_from_cart(self.delete_item_title)
 
         #!--------task7--------!
         self.checkout_cart()
@@ -235,7 +316,7 @@ class Parser:
         self.fill_user_data()
 
         #!--------task9--------!
-        self.payment_information, self.shipping_information, self.tax, self.total = self.get_payment_information()
+        self.get_payment_information()
 
         #!--------task10--------!
         self.create_pdf()
