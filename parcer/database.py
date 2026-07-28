@@ -4,6 +4,7 @@ from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
+
 class ProductOrder(Base):
     __tablename__ = 'Product_Order'
     id = Column(Integer, primary_key=True)
@@ -17,7 +18,8 @@ class Product(Base):
     title = Column(String)
     description = Column(String)
     price = Column(Float)
-    orders = relationship('Order', secondary=ProductOrder.__tablename__, overlaps='products')
+    orders = relationship(
+        'Order', secondary=ProductOrder.__tablename__, overlaps='products')
 
 
 class Order(Base):
@@ -30,5 +32,5 @@ class Order(Base):
     shipping_information = Column(String)
     tax = Column(Float)
     price_on_cite = Column(Float)
-    products = relationship('Product', secondary=ProductOrder.__tablename__, overlaps='orders')
-
+    products = relationship(
+        'Product', secondary=ProductOrder.__tablename__, overlaps='orders')
