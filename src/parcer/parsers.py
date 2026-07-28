@@ -11,13 +11,15 @@ from openpyxl.styles import PatternFill, Alignment, Border, Side
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, insert
 from .database import ProductOrder, Product, Order, Base
+from datetime import datetime
 import logging
 
 
 class Parser:
 
     def __init__(self, site_url, login, password, download_dir,
-                 items_count, first_name, last_name, postal_code, db_name, log_filename):
+                 items_count, first_name, last_name, postal_code, 
+                 db_name, log_filename, xlsx_filename):
         self.site_url = site_url
         self.login = login
         self.password = password
@@ -28,6 +30,7 @@ class Parser:
         self.postal_code = postal_code
         self.db_name = db_name
         self.log_filename = log_filename
+        self.xlsx_filename = xlsx_filename
         self.driver = self.create_driver()
         self.engine = self.create_database()
         self.logger = self.create_logger()
@@ -41,13 +44,16 @@ class Parser:
             "safebrowsing.enabled": True,
         }
         options.add_experimental_option("prefs", prefs)
-        # options.add_argument('--headless=new')
+        options.add_argument("-headless=new")
+        options.add_argument("--no-sandbox")            
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
 
         driver = webdriver.Chrome(options=options)
         return driver
 
     def create_database(self):
-        engine = create_engine(f'sqlite:///{self.db_name}')
+        engine = create_engine(f'sqlite:///Databases/{self.db_name}')
         Base.metadata.create_all(engine)
         return engine
 
@@ -55,7 +61,7 @@ class Parser:
         logger = logging.getLogger('ProgramLogger')
         logger.setLevel(logging.INFO)
 
-        file_handler = logging.FileHandler(self.log_filename, 'a')
+        file_handler = logging.FileHandler(f'logs/{self.log_filename}', 'a')
         file_handler.setLevel(logging.INFO)
 
         log_format = logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -75,6 +81,8 @@ class Parser:
 
         items = self.driver.find_element(By.CLASS_NAME, 'inventory_list').find_elements(
             By.CLASS_NAME, 'inventory_item')
+        if self.items_count > len(items):
+            self.items_count = len(items)
         buy_items_indecies = sorted(
             sample(range(len(items)), self.items_count))
         k = 0
@@ -302,7 +310,7 @@ class Parser:
         self.set_small_text_alignment(f'A4:I{4 + product_count_in_order}')
         self.set_large_text_alignment(f'C5:C{4 + product_count_in_order}')
 
-        self.work_book.save('Report.xlsx')
+        self.work_book.save(f'{os.path.abspath(os.getcwd())}{self.download_dir}/{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}_{self.xlsx_filename}')
 
     def start(self):
         self.driver.get(self.site_url)
