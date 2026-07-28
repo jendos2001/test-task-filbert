@@ -60,48 +60,6 @@ class Parser:
         buy_items_indecies = sorted(sample(range(len(items)), self.items_count))
         k = 0
 
-        '''
-
-        with Session(bind=engine) as session:
-
-            # add users
-            usr1 = User(name="bob")
-            session.add(usr1)
-
-            usr2 = User(name="alice")
-            session.add(usr2)
-
-            session.commit()
-
-            # add projects
-            prj1 = Project(name="Project 1")
-            session.add(prj1)
-
-            prj2 = Project(name="Project 2")
-            session.add(prj2)
-
-            session.commit()
-
-            # map users to projects
-            prj1.users = [usr1, usr2]
-            prj2.users = [usr2]
-
-            session.commit()
-
-        Session = sessionmaker(bind=engine)
-                session = Session()
-                try:
-                    # Подтверждаем транзакцию
-                    session.commit()
-                    print("Пользователь успешно добавлен!")
-                except:
-                    # В случае ошибки откатываем транзакцию
-                    session.rollback()
-                    print("Произошла ошибка, откатываем транзакцию.")
-                finally:
-                    # Закрываем сессию
-                    session.close()
-        '''
         self.current_items = []
         with Session(bind=self.engine) as session:
             for index, item in enumerate(items):
