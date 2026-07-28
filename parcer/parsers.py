@@ -17,7 +17,7 @@ import logging
 class Parser:
 
     def __init__(self, site_url, login, password, download_dir,
-                 items_count, first_name, last_name, postal_code, db_name):
+                 items_count, first_name, last_name, postal_code, db_name, log_filename):
         self.site_url = site_url
         self.login = login
         self.password = password
@@ -27,8 +27,11 @@ class Parser:
         self.last_name = last_name
         self.postal_code = postal_code
         self.db_name = db_name
+        self.log_filename = log_filename
         self.driver = self.create_driver()
         self.engine = self.create_database()
+        self.logger = self.create_logger()
+        self.logger.info('Successful parser initialization')
 
     def create_driver(self):
         options = Options()
@@ -47,6 +50,19 @@ class Parser:
         engine = create_engine(f'sqlite:///{self.db_name}')
         Base.metadata.create_all(engine)
         return engine
+
+    def create_logger(self):
+        logger = logging.getLogger('ProgramLogger')
+        logger.setLevel(logging.INFO)
+
+        file_handler = logging.FileHandler(self.log_filename, 'a')
+        file_handler.setLevel(logging.INFO)
+
+        log_format = logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        file_handler.setFormatter(log_format)
+
+        logger.addHandler(file_handler)
+        return logger
 
     def authorization(self, ):
         self.driver.find_element(By.ID, 'user-name').send_keys(self.login)
@@ -293,9 +309,11 @@ class Parser:
 
         #!--------task1--------!
         self.authorization()
+        self.logger.info('Successful authorization')
 
         #!--------task2-3--------!
         self.create_cart()
+        self.logger.info('Items added to the cart')
 
         #!--------task4--------!
         self.delete_item_title = self.delete_item_from_database()
@@ -305,18 +323,24 @@ class Parser:
 
         #!--------task6--------!
         self.delete_item_from_cart(self.delete_item_title)
+        self.logger.info('A randomly selected item has been removed from the cart')
 
         #!--------task7--------!
         self.checkout_cart()
+        self.logger.info('The shopping cart has been checked')
 
         #!--------task8--------!
         self.fill_user_data()
+        self.logger.info('User data has been entered')
 
         #!--------task9--------!
         self.get_payment_information()
+        self.logger.info('Delivery information has been filled in')
 
         #!--------task10--------!
         self.create_pdf()
+        self.logger.info('PDF file uploaded')
 
         #!--------task11--------!
         self.create_xlsx_file()
+        self.logger.info('XLSX report created')
