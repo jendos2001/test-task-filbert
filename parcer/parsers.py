@@ -10,218 +10,236 @@ from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import PatternFill, Alignment, Border, Side
 
 
-site_url = 'https://www.saucedemo.com/'
-login = 'standard_user'
-password = 'secret_sauce'
-download_dir = os.path.abspath(os.getcwd()) + '/Downloads'
-items_count = 3
-first_name = 'Evgeny'
-last_name = 'Kurshev'
-postal_code = '187550'
+class Parser:
 
-def create_driver():
-    options = Options()
-    prefs = {
-        "profile.password_manager_leak_detection": False,
-        "download.default_directory": download_dir,
-        "safebrowsing.enabled": True,
-    }
-    options.add_experimental_option("prefs", prefs)
-    #options.add_argument('--headless=new')
+    def __init__(self, site_url, login, password, download_dir, 
+                    items_count, first_name, last_name, postal_code):
+        self.site_url = site_url
+        self.login = login
+        self.password = password
+        self.download_dir = download_dir
+        self.items_count = items_count
+        self.first_name = first_name
+        self.last_name = last_name
+        self.postal_code = postal_code
+        self.driver = self.create_driver()
+        
 
-    driver = webdriver.Chrome(options=options)
-    return driver
+    def create_driver(self):
+        options = Options()
+        prefs = {
+            "profile.password_manager_leak_detection": False,
+            "download.default_directory": os.path.abspath(os.getcwd()) + self.download_dir,
+            "safebrowsing.enabled": True,
+        }
+        options.add_experimental_option("prefs", prefs)
+        #options.add_argument('--headless=new')
 
-def authorization(driver):
-    driver.find_element(By.ID, 'user-name').send_keys(login)
-    driver.find_element(By.ID, 'password').send_keys(password)
-    driver.find_element(By.ID, 'login-button').click()
+        driver = webdriver.Chrome(options=options)
+        return driver
 
-def create_cart(driver):
-    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
+    def authorization(self, ):
+        self.driver.find_element(By.ID, 'user-name').send_keys(self.login)
+        self.driver.find_element(By.ID, 'password').send_keys(self.password)
+        self.driver.find_element(By.ID, 'login-button').click()
 
-    items = driver.find_element(By.CLASS_NAME, 'inventory_list').find_elements(By.CLASS_NAME, 'inventory_item')
-    buy_items_indecies = sorted(sample(range(len(items)), items_count))
-    k = 0
+    def create_cart(self):
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
 
-    database = []
-    for index, item in enumerate(items):
-        if index == buy_items_indecies[k]:
-            title = item.find_element(By.CLASS_NAME, 'inventory_item_name').text 
-            description = item.find_element(By.CLASS_NAME, 'inventory_item_desc').text 
-            price = float(item.find_element(By.CLASS_NAME, 'inventory_item_price').text[1:])
-            item.find_element(By.CLASS_NAME, 'btn').click()
-            database.append((title, description, price))
-            k += 1
-            if k == items_count:
+        items = self.driver.find_element(By.CLASS_NAME, 'inventory_list').find_elements(By.CLASS_NAME, 'inventory_item')
+        buy_items_indecies = sorted(sample(range(len(items)), self.items_count))
+        k = 0
+
+        database = []
+        for index, item in enumerate(items):
+            if index == buy_items_indecies[k]:
+                title = item.find_element(By.CLASS_NAME, 'inventory_item_name').text 
+                description = item.find_element(By.CLASS_NAME, 'inventory_item_desc').text 
+                price = float(item.find_element(By.CLASS_NAME, 'inventory_item_price').text[1:])
+                item.find_element(By.CLASS_NAME, 'btn').click()
+                database.append((title, description, price))
+                k += 1
+                if k == self.items_count:
+                    break
+
+        return database
+
+    def delete_item_from_database(self):
+        delete_item_index = randint(0, self.items_count - 1)
+        delete_item = self.database.pop(delete_item_index)
+        return delete_item
+
+    def go_to_cart(self):
+        self.driver.find_element(By.CLASS_NAME, 'shopping_cart_link').click()
+
+    def delete_item_from_cart(self, delete_item):
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
+        cart_items = self.driver.find_element(By.CLASS_NAME, 'cart_list').find_elements(By.CLASS_NAME, 'cart_item')
+        for item in cart_items:
+            if item.find_element(By.CLASS_NAME, 'inventory_item_name').text == delete_item[0]:
+                item.find_element(By.CLASS_NAME, 'btn').click()
                 break
 
-    return database
+    def checkout_cart(self):
+        self.driver.find_element(By.ID, 'checkout').click()
 
-def delete_item_from_database(database):
-    delete_item_index = randint(0, items_count - 1)
-    delete_item = database.pop(delete_item_index)
-    return database, delete_item
+    def fill_user_data(self):
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
+        self.driver.find_element(By.ID, 'first-name').send_keys(self.first_name)
+        self.driver.find_element(By.ID, 'last-name').send_keys(self.last_name)
+        self.driver.find_element(By.ID, 'postal-code').send_keys(self.postal_code)
+        self.driver.find_element(By.ID, 'continue').click()
 
-def go_to_cart(driver):
-    driver.find_element(By.CLASS_NAME, 'shopping_cart_link').click()
+    def get_payment_information(self):
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
+        info_item_block = self.driver.find_element(By.CLASS_NAME, 'summary_info')
+        info_items = info_item_block.find_elements(By.CLASS_NAME, 'summary_value_label')
+        payment_information = info_items[0].text
+        shipping_information = info_items[1].text
+        tax = float(self.driver.find_element(By.CLASS_NAME, 'summary_tax_label').text.split()[1][1:])
+        total = float(self.driver.find_element(By.CLASS_NAME, 'summary_total_label').text.split()[1][1:])
+        info_item_block.find_element(By.ID, 'finish').click()
+        return payment_information, shipping_information, tax, total
 
-def delete_item_from_cart(driver, delete_item):
-    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
-    cart_items = driver.find_element(By.CLASS_NAME, 'cart_list').find_elements(By.CLASS_NAME, 'cart_item')
-    for item in cart_items:
-        if item.find_element(By.CLASS_NAME, 'inventory_item_name').text == delete_item[0]:
-            item.find_element(By.CLASS_NAME, 'btn').click()
-            break
+    def create_pdf(self):
+        WebDriverWait(self.driver, 30).until(EC.element_to_be_clickable((By.ID, 'generate-pdf-order')))
+        self.driver.find_element(By.ID, 'generate-pdf-order').click()
+        WebDriverWait(self.driver, 30).until(EC.text_to_be_present_in_element((By.ID, 'generate-pdf-order'), 'Generate PDF order'))
+        self.driver.quit()
 
-def checkout_cart(driver):
-    driver.find_element(By.ID, 'checkout').click()
+    def set_header(self, cells, name, value, border):
+        self.work_sheet[cells[0]] = name
+        self.work_sheet[cells[0]].border = border
+        self.work_sheet[cells[1]] = value
+        self.work_sheet[cells[1]].border = border
+        self.work_sheet[cells[1]].alignment = Alignment(wrap_text=True, horizontal='justify')
 
-def fill_user_data(driver):
-    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
-    driver.find_element(By.ID, 'first-name').send_keys(first_name)
-    driver.find_element(By.ID, 'last-name').send_keys(last_name)
-    driver.find_element(By.ID, 'postal-code').send_keys(postal_code)
-    driver.find_element(By.ID, 'continue').click()
+    def set_merge_rows_value(self, cells, name, value, column, start_row, end_row):
+        self.work_sheet.merge_cells(start_row=start_row, start_column=column, end_row=end_row, end_column=column)
+        self.work_sheet[cells[0]] = name
+        self.work_sheet[cells[1]] = value
 
-def get_payment_information(driver):
-    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'root')))
-    info_item_block = driver.find_element(By.CLASS_NAME, 'summary_info')
-    info_items = info_item_block.find_elements(By.CLASS_NAME, 'summary_value_label')
-    payment_information = info_items[0].text
-    shipping_information = info_items[1].text
-    tax = float(driver.find_element(By.CLASS_NAME, 'summary_tax_label').text.split()[1][1:])
-    total = float(driver.find_element(By.CLASS_NAME, 'summary_total_label').text.split()[1][1:])
-    info_item_block.find_element(By.ID, 'finish').click()
-    return payment_information, shipping_information, tax, total
+    def set_column_width(self, values):
+        for key, value in values.items():
+            self.work_sheet.column_dimensions[key].width = value
 
-def create_pdf(driver):
-    WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.ID, 'generate-pdf-order')))
-    driver.find_element(By.ID, 'generate-pdf-order').click()
-    WebDriverWait(driver, 30).until(EC.text_to_be_present_in_element((By.ID, 'generate-pdf-order'), 'Generate PDF order'))
-    driver.quit()
+    def create_equal_not_equal_color_rule(self, cell, compare_cells):
+        red_fill = PatternFill(start_color='FF0000', fill_type='solid')
+        green_fill = PatternFill(start_color='00FF00', fill_type='solid')
 
-def create_xlsx_file(database, payment_information, shipping_information, tax, total, items_count):
-    work_book = Workbook()
-    work_sheet = work_book.active
-    work_sheet.title = 'Report'
-    work_sheet['B1'] = 'Customer'
-    work_sheet.column_dimensions['B'].width = 30
-    work_sheet['B2'] = f'{first_name} {last_name}'
-    work_sheet['C1'] = 'ZIP/Post code'
-    work_sheet['C2'] = postal_code
-    work_sheet.column_dimensions['D'].width = 30
-    work_sheet['D1'] = 'Payment Information'
-    work_sheet['D2'] = payment_information
-    work_sheet.column_dimensions['E'].width = 30
-    work_sheet['E1'] = 'Shipping Information'
-    work_sheet['E2'] = shipping_information
+        rule_equal = FormulaRule(formula=[f'{compare_cells[0]}={compare_cells[1]}'], fill=green_fill)
+        rule_not_equal = FormulaRule(formula=[f'{compare_cells[0]}<>{compare_cells[1]}'], fill=red_fill)
 
-    data = [('№', 'Product', 'Description', 'Price')] + [(index + 1, *item) for index, item in enumerate(database)]
-    data = [item for sublist in data for item in sublist]
-    k = 0
-    for row in work_sheet.iter_rows(min_row=4, max_row=3 + items_count, min_col=1, max_col=4):
-        for cell in row:
-            cell.value = data[k]
-            k += 1
+        self.work_sheet.conditional_formatting.add(cell, rule_equal)
+        self.work_sheet.conditional_formatting.add(cell, rule_not_equal)
 
-    work_sheet.column_dimensions['C'].width = 30
+    def create_table_borders(self, head_range, head_border, table_range, table_border):
+        for row in self.work_sheet[table_range]:
+            for cell in row:
+                cell.border = table_border
 
-    for column in ['F', 'G', 'H', 'I']:
-        work_sheet.column_dimensions[column].width = 15
+        for row in self.work_sheet[head_range]:
+            for cell in row:
+                cell.border = head_border
 
-    work_sheet.merge_cells(start_row=5, start_column=5, end_row=3 + items_count, end_column=5)
-    work_sheet['E4'] = 'Item total'
-    work_sheet['E5'] = f'=SUM(D5:D{3 + items_count})'
+    def set_small_text_alignment(self, range):
+        for row in self.work_sheet[range]:
+            for cell in row:
+                cell.alignment = Alignment(horizontal='center', vertical='center')
 
-    work_sheet.merge_cells(start_row=5, start_column=6, end_row=3 + items_count, end_column=6)
-    work_sheet['F4'] = 'Tax'
-    work_sheet['F5'] = tax
+    def set_large_text_alignment(self, range):
+        for col in self.work_sheet[range]:
+            for cell in col:
+                cell.alignment = Alignment(wrap_text=True, horizontal='justify')
 
-    work_sheet.merge_cells(start_row=5, start_column=7, end_row=3 + items_count, end_column=7)
-    work_sheet['G4'] = 'Total'
-    work_sheet['G5'] = '=E5 + F5'
+    def set_main_data(self, header, data, range):
+        data = [header] + [(index + 1, *item) for index, item in enumerate(data)]
+        data = [item for sublist in data for item in sublist]
+        k = 0
+        for row in self.work_sheet[range]:
+            for cell in row:
+                cell.value = data[k]
+                k += 1
+     
+    def create_xlsx_file(self):
+        self.work_book = Workbook()
+        self.work_sheet = self.work_book.active
+        self.work_sheet.title = 'Report'
 
-    work_sheet.merge_cells(start_row=5, start_column=8, end_row=3 + items_count, end_column=8)
-    work_sheet['H4'] = 'Total on cite'
-    work_sheet['H5'] = total
+        width_values = {
+            'B': 30,
+            'C': 30,
+            'D': 30,
+            'E': 30,
+            'F': 15,
+            'G': 15,
+            'H': 15,
+            'I': 15
+        }
 
-    work_sheet.merge_cells(start_row=5, start_column=9, end_row=3 + items_count, end_column=9)
-    work_sheet['I4'] = 'Equal totals'
+        thin_side = Side(border_style="thin", color="000000")
+        table_border = Border(
+            left=thin_side, right=thin_side, top=thin_side, bottom=thin_side
+        )
+        head_side = Side(border_style="medium", color="000000")
+        head_border = Border(
+            left=head_side, right=head_side, top=head_side, bottom=head_side
+        )
 
-    red_fill = PatternFill(start_color='FF0000', fill_type='solid')
-    green_fill = PatternFill(start_color='00FF00', fill_type='solid')
+        self.set_header(['B1', 'B2'], 'Customer', f'{self.first_name} {self.last_name}', table_border)
+        self.set_header(['C1', 'C2'], 'ZIP/Post code', self.postal_code, table_border)
+        self.set_header(['D1', 'D2'], 'Payment Information', self.payment_information, table_border)
+        self.set_header(['E1', 'E2'], 'Shipping Information', self.shipping_information, table_border)
 
-    rule_equal = FormulaRule(formula=['$H$5=$G$5'], fill=green_fill)
-    rule_not_equal = FormulaRule(formula=['$H$5<>$G$5'], fill=red_fill)
+        self.set_column_width(width_values)
 
-    work_sheet.conditional_formatting.add('I5', rule_equal)
-    work_sheet.conditional_formatting.add('I5', rule_not_equal)
+        self.set_main_data(('№', 'Product', 'Description', 'Price'), self.database, f'A4:D{3 + self.items_count}')
 
-    thin_side = Side(border_style="thin", color="000000")
-    table_border = Border(
-        left=thin_side, right=thin_side, top=thin_side, bottom=thin_side
-    )
-    head_side = Side(border_style="medium", color="000000")
-    head_border = Border(
-        left=head_side, right=head_side, top=head_side, bottom=head_side
-    )
+        self.set_merge_rows_value(['E4', 'E5'], 'Item total', f'=SUM(D5:D{3 + self.items_count})', 5, 5, 3 + self.items_count)
+        self.set_merge_rows_value(['F4', 'F5'], 'Tax', self.tax, 6, 5, 3 + self.items_count)
+        self.set_merge_rows_value(['G4', 'G5'], 'Total', '=E5 + F5', 7, 5, 3 + self.items_count)
+        self.set_merge_rows_value(['H4', 'H5'], 'Total on cite', self.total, 8, 5, 3 + self.items_count)
 
-    for row in work_sheet["B1:E2"]:
-        for cell in row:
-            cell.border = table_border
-            cell.alignment = Alignment(wrap_text=True, horizontal='justify')
+        self.set_merge_rows_value(['I4', 'I5'], 'Equal totals', '', 9, 5, 3 + self.items_count)
+        self.create_equal_not_equal_color_rule('I5', ['$H$5', '$G$5'])
 
-    for row in work_sheet[f'A5:I{3 + items_count}']:
-        for cell in row:
-            cell.border = table_border
+        self.create_table_borders('A4:I4', head_border, f'A5:I{3 + self.items_count}', table_border)
 
-    for row in work_sheet["A4:I4"]:
-        for cell in row:
-            cell.border = head_border
+        self.set_small_text_alignment(f'A4:I{3 + self.items_count}')
+        self.set_large_text_alignment(f'C5:C{3 + self.items_count}')
 
-    for row in work_sheet[f'A4:I{3 + items_count}']:
-        for cell in row:
-            cell.alignment = Alignment(horizontal='center', vertical='center')
+        self.work_book.save('Report.xlsx')
 
-    for col in work_sheet.iter_rows(min_col=3, max_col=3, min_row=5, max_row=4 + items_count):
-        for cell in col:
-            cell.alignment = Alignment(wrap_text=True, horizontal='justify')
+    def start(self):
+        self.driver.get(self.site_url)
 
+        #!--------task1--------!
+        self.authorization()
 
-    work_book.save('Report.xlsx')
+        #!--------task2-3--------!
+        self.database = self.create_cart()
 
-def main():
-    driver = create_driver()
-    driver.get(site_url)
+        #!--------task4--------!
+        self.delete_item = self.delete_item_from_database()
 
-    #!--------task1--------!
-    authorization(driver)
+        #!--------task5--------!
+        self.go_to_cart()
 
-    #!--------task2-3--------!
-    database = create_cart(driver)
+        #!--------task6--------!
+        self.delete_item_from_cart(self.delete_item)
 
-    #!--------task4--------!
-    database, delete_item = delete_item_from_database(database)
+        #!--------task7--------!
+        self.checkout_cart()
 
-    #!--------task5--------!
-    go_to_cart(driver)
+        #!--------task8--------!
+        self.fill_user_data()
 
-    #!--------task6--------!
-    delete_item_from_cart(driver, delete_item)
+        #!--------task9--------!
+        self.payment_information, self.shipping_information, self.tax, self.total = self.get_payment_information()
 
-    #!--------task7--------!
-    checkout_cart(driver)
+        #!--------task10--------!
+        self.create_pdf()
 
-    #!--------task8--------!
-    fill_user_data(driver)
-
-    #!--------task9--------!
-    payment_information, shipping_information, tax, total = get_payment_information(driver)
-
-    #!--------task10--------!
-    create_pdf(driver)
-
-    #!--------task11--------!
-    create_xlsx_file(database, payment_information, shipping_information, tax, total, items_count)
+        #!--------task11--------!
+        self.create_xlsx_file()
     
