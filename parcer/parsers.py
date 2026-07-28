@@ -10,7 +10,7 @@ from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import PatternFill, Alignment, Border, Side
 
 
-class Worker:
+class Parser:
 
     def __init__(self, site_url, login, password, download_dir, 
                     items_count, first_name, last_name, postal_code):

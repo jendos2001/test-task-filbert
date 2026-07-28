@@ -1,4 +1,4 @@
-from parcer.parsers import Worker
+from parcer.parsers import Parser
 
 site_url = 'https://www.saucedemo.com/'
 login = 'standard_user'
@@ -11,7 +11,7 @@ postal_code = '187550'
 
 
 if __name__ == '__main__':
-    worker = Worker(site_url, login, password, download_dir, 
+    parser = Parser(site_url, login, password, download_dir, 
                     items_count, first_name, last_name, postal_code)
-    worker.start()
+    parser.start()
 
