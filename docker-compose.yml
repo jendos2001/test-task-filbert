@@ -1,0 +1,18 @@
+version: "3.5"
+services:
+  parser:
+    container_name: "parser_container"
+    build:
+      context: src
+      dockerfile: Dockerfile
+    env_file:
+      - .env.project
+
+    command: sh -c "umask 0000 && python3 main.py && tail -f /dev/null"
+    stdin_open: true
+    tty: true
+    
+    volumes:
+      - ./Downloads:/app/Downloads
+      - ./Databases:/app/Databases
+      - ./logs:/app/logs
