@@ -25,12 +25,15 @@
 
 ### Запуск программы
 1. Клонировать репозиторий командой `git clone https://github.com/jendos2001/test-task-filbert.git`
-2. Задать переменные среды в файле `.env.project`. В самом файле уже заданы готовые переменные, с которыми программа работает.
-3. Собрать приложение командной `sudo docker compose --env-file .env.project build`
-4. Запустить приложение командой `sudo docker compose --env-file .env.project up -d`
-5. После выполнения работы в текущей директории появятся файлы с базой данных в директории `Databases`, сформированные отчёты в директории `Downloads` и логи в директории `logs`.
-6. Для повторного запуска можно использовать команду `sudo docker exec -it parser_container python3 main.py`
-7. Для того, чтобы дать права доступа (на Linux) можно использовать команду `sudo chmod -R 777 ./Databases/ ./Downloads/ ./logs/`
+2. Перейти в деиректорию командой `cd test-task-filbert`
+3. Задать переменные среды в файле `.env.project`. В самом файле уже заданы готовые переменные, с которыми программа работает.
+4. Установить `docker`
+5. Собрать приложение командной `sudo docker compose --env-file .env.project build`
+6. Запустить приложение командой `sudo docker compose --env-file .env.project up -d`
+7. После выполнения работы в текущей директории появятся файлы с базой данных в директории `Databases`, сформированные отчёты в директории `Downloads` и логи в директории `logs`.
+8. Войти в контейнер можно командой `docker exec -it parser_container bash`
+9. Для повторного запуска можно использовать команду `sudo docker exec -it parser_container python3 main.py`
+10. Для того, чтобы дать права доступа (на Linux) можно использовать команду `sudo chmod -R 777 ./Databases/ ./Downloads/ ./logs/`
 
 
 
