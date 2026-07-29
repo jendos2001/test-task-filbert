@@ -16,10 +16,38 @@ import logging
 
 
 class Parser:
-
+    """ Главный класс для работы
+    """
     def __init__(self, site_url, login, password, download_dir,
                  items_count, first_name, last_name, postal_code, 
                  db_name, log_filename, xlsx_filename):
+        """ Инициализация парсера
+
+        :param site_url: Ссылка на сайт
+        :type site_url: str
+        :param login: Логин пользователя
+        :type login: str
+        :param password: Пароль пользователя
+        :type password: str
+        :param download_dir: Папка, в которую будут загружаться файлы
+        :type download_dir: str
+        :param items_count: Количество элементов, которые будут добавлены в корзину. 
+                            Если число больше имеющихся товаров, то будут добавлены все товары
+        :type items_count: int
+        :param first_name: Имя заказчкиа
+        :type first_name: str
+        :param last_name: Фамилия заказчика
+        :type last_name: str
+        :param postal_code: Почтовый индекс/ZIP-код
+        :type postal_code: str
+        :param db_name: Имя базы данных в формате filename.db
+        :type db_name: str
+        :param log_filename: Имя файла логов в формате filename.log
+        :type log_filename: str
+        :param xlsx_filename: Имя файла отчёта в формате filename.xlsx
+        :type xlsx_filename: str
+        """    
+
         self.site_url = site_url
         self.login = login
         self.password = password
@@ -37,6 +65,12 @@ class Parser:
         self.logger.info('Successful parser initialization')
 
     def create_driver(self):
+        """ Функция для создания главного драйвера.
+
+        :return: Драйвер программы
+        :rtype: selenium.webdriver.Chrome
+        """ 
+
         options = Options()
         prefs = {
             "profile.password_manager_leak_detection": False,
@@ -53,11 +87,23 @@ class Parser:
         return driver
 
     def create_database(self):
+        """Функция для создания базы данных
+
+        :return: Машина для работы с базой данных
+        :rtype: sqlalchemy.engine.Engine
+        """
+
         engine = create_engine(f'sqlite:///Databases/{self.db_name}')
         Base.metadata.create_all(engine)
         return engine
 
     def create_logger(self):
+        """Функция для создания логгера программы
+
+        :return: Логгер программы
+        :rtype: logging.Logger
+        """  
+
         logger = logging.getLogger('ProgramLogger')
         logger.setLevel(logging.INFO)
 
@@ -70,12 +116,18 @@ class Parser:
         logger.addHandler(file_handler)
         return logger
 
-    def authorization(self, ):
+    def authorization(self):
+        """ Функция для авторизации """
+
         self.driver.find_element(By.ID, 'user-name').send_keys(self.login)
         self.driver.find_element(By.ID, 'password').send_keys(self.password)
         self.driver.find_element(By.ID, 'login-button').click()
 
     def create_cart(self):
+        """ Формирование корзины. В корзину добавляются то количество случайных элементов,
+        которые указал пользователь. Добавленные элементы сохраняются в базу данных
+        """
+
         WebDriverWait(self.driver, 5).until(
             EC.presence_of_element_located((By.ID, 'root')))
 
@@ -113,6 +165,12 @@ class Parser:
                         break
 
     def delete_item_from_database(self):
+        """ Удаление случайного элемента из корзины
+
+        :return: Наименование удалённого элемента
+        :rtype: str
+        """
+
         delete_item_index = randint(0, self.items_count - 1)
         delete_item_id_on_database = self.current_items.pop(delete_item_index)
         with Session(bind=self.engine) as session:
@@ -121,9 +179,17 @@ class Parser:
         return delete_item_title
 
     def go_to_cart(self):
+        """ Переход в корзину """ 
+
         self.driver.find_element(By.CLASS_NAME, 'shopping_cart_link').click()
 
     def delete_item_from_cart(self, delete_item_title):
+        """ Функция для удаления случайно выбранного элемента
+
+        :param delete_item_title: Наименование удалённого элемента
+        :type delete_item_title: str
+        """
+
         WebDriverWait(self.driver, 5).until(
             EC.presence_of_element_located((By.ID, 'root')))
         cart_items = self.driver.find_element(
@@ -134,9 +200,13 @@ class Parser:
                 break
 
     def checkout_cart(self):
+        """ Подтверждение товаров в корзине """
+
         self.driver.find_element(By.ID, 'checkout').click()
 
     def fill_user_data(self):
+        """ Заполнение данных пользователя """
+
         WebDriverWait(self.driver, 5).until(
             EC.presence_of_element_located((By.ID, 'root')))
         self.driver.find_element(
@@ -147,6 +217,8 @@ class Parser:
         self.driver.find_element(By.ID, 'continue').click()
 
     def get_payment_information(self):
+        """ Получение информации о доставке и сохранение её в базу данных """
+
         WebDriverWait(self.driver, 5).until(
             EC.presence_of_element_located((By.ID, 'root')))
         info_item_block = self.driver.find_element(
@@ -175,6 +247,8 @@ class Parser:
             session.commit()
 
     def create_pdf(self):
+        """ Получение отчёта с сервера сайта """
+
         WebDriverWait(self.driver, 30).until(
             EC.element_to_be_clickable((By.ID, 'generate-pdf-order')))
         self.driver.find_element(By.ID, 'generate-pdf-order').click()
@@ -183,6 +257,18 @@ class Parser:
         self.driver.quit()
 
     def set_header(self, cells, name, value, border):
+        """ Создание заголовков в отчёте
+
+        :param cells: Ячейки, куда будут записаны данные
+        :type cells: List[str, str]
+        :param name: Заголовок ячейки
+        :type name: str
+        :param value: Значение ячейки
+        :type value: str
+        :param border: Тип рамки для ячеек
+        :type border: openpyxl.styles.Border
+        """   
+
         self.work_sheet[cells[0]] = name
         self.work_sheet[cells[0]].border = border
         self.work_sheet[cells[1]] = value
@@ -191,16 +277,47 @@ class Parser:
             wrap_text=True, horizontal='justify')
 
     def set_merge_rows_value(self, cells, name, value, column, start_row, end_row):
+        """ Объединение ячеек и установка значение в ней
+
+        :param cells: Ячейки, в которых необходимо установить значения
+        :type cells: List[str, str]
+        :param name: Заголовок ячейки
+        :type name: str
+        :param value: Значение ячейки
+        :type value: str/int
+        :param column: Объединяемая колонка
+        :type column: int
+        :param start_row: Начальная строка для объединения
+        :type start_row: int
+        :param end_row: Конечная строка для объединения
+        :type end_row: int
+        """
+
         self.work_sheet.merge_cells(
             start_row=start_row, start_column=column, end_row=end_row, end_column=column)
         self.work_sheet[cells[0]] = name
         self.work_sheet[cells[1]] = value
 
     def set_column_width(self, values):
+        """ Установление ширины колонок
+
+        :param values: Словарь со значениями ширины столбцов. Например, {'A': 10, 'B': 20}
+        :type values: dict
+        """
+
         for key, value in values.items():
             self.work_sheet.column_dimensions[key].width = value
 
     def create_equal_not_equal_color_rule(self, cell, compare_cells):
+        """ Создание правила для сравнения ячеек.
+            Если ячейки равны, то будет окрашено в зеленый цвет, если нет, то в красный
+
+        :param cell: Ячейка, в которую будет записана формула
+        :type cell: str
+        :param compare_cells: Сравниваемые ячейки
+        :type compare_cells: List[str, str]
+        """
+        
         red_fill = PatternFill(start_color='FF0000', fill_type='solid')
         green_fill = PatternFill(start_color='00FF00', fill_type='solid')
 
@@ -213,6 +330,18 @@ class Parser:
         self.work_sheet.conditional_formatting.add(cell, rule_not_equal)
 
     def create_table_borders(self, head_range, head_border, table_range, table_border):
+        """ Создание границы для главной таблицы
+
+        :param head_range: Границы заголовка таблицы. Например, 'A4:I4'
+        :type head_range: str
+        :param head_border: Тип границы для заголовка таблицы
+        :type head_border: openpyxl.styles.Border
+        :param table_range: Границы данных таблицы таблицы. Например, 'A5:I6'
+        :type table_range: str
+        :param table_border: Тип границы для данных таблицы
+        :type table_border: openpyxl.styles.Border
+        """
+
         for row in self.work_sheet[table_range]:
             for cell in row:
                 cell.border = table_border
@@ -222,18 +351,40 @@ class Parser:
                 cell.border = head_border
 
     def set_small_text_alignment(self, range):
+        """ Создание выравнивания для небольшого текста
+
+        :param range: Ячейки, в которых необходимо выставить выравнивание. Например, 'A4:I6'
+        :type range: str
+        """
+
         for row in self.work_sheet[range]:
             for cell in row:
                 cell.alignment = Alignment(
                     horizontal='center', vertical='center')
 
     def set_large_text_alignment(self, range):
+        """ Создание выравнивания для объёмного текста
+
+        :param range: Ячейки, в которых необходимо выставить выравнивание. Например, 'C5:C6'
+        :type range: str
+        """
+
         for col in self.work_sheet[range]:
             for cell in col:
                 cell.alignment = Alignment(
                     wrap_text=True, horizontal='justify')
 
     def set_main_data(self, header, data, range):
+        """ Заполнение данных таблицы из базы данных
+
+        :param header: Заголовок таблицы
+        :type header: tuple
+        :param data: Главные данные
+        :type data: List[tuple]
+        :param range: Ячейки, в которые необходимо вставить данные. Например, 'A4:D6'
+        :type range: str
+        """
+
         data = [header] + data
         data = [item for sublist in data for item in sublist]
         k = 0
@@ -243,6 +394,8 @@ class Parser:
                 k += 1
 
     def create_xlsx_file(self):
+        """ Создание XLSX отчёта """
+
         self.work_book = Workbook()
         self.work_sheet = self.work_book.active
         self.work_sheet.title = 'Report'
@@ -313,6 +466,7 @@ class Parser:
         self.work_book.save(f'{os.path.abspath(os.getcwd())}{self.download_dir}/{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}_{self.xlsx_filename}')
 
     def start(self):
+        """ Главная функция """        
         self.driver.get(self.site_url)
 
         #!--------task1--------!
