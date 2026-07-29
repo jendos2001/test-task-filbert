@@ -13,6 +13,6 @@ services:
     tty: true
     
     volumes:
-      - ./Downloads:/app${DOWNLOAD_DIR}
+      - ./Downloads:/app/Downloads
       - ./Databases:/app/Databases
       - ./logs:/app/logs
